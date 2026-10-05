@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(python --version; node --version; ollama --version; ollama list; Get-CimInstance Win32_ComputerSystem | % { \"RAM GB: \" + [math]::Round\\($_.TotalPhysicalMemory/1GB,1\\) }; Get-CimInstance Win32_VideoController | % { $_.Name + \" VRAM GB: \" + [math]::Round\\($_.AdapterRAM/1GB,1\\) })"
+    ]
+  }
+}
