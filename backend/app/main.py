@@ -2,6 +2,7 @@ from pathlib import Path
 
 import ollama
 from fastapi import FastAPI, File, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.ingest import build_chunks
 from pydantic import BaseModel
@@ -10,6 +11,13 @@ from app.rag import answer_question
 from app.vectorstore import add_chunks, search
 
 app = FastAPI(title="AI Research Agent")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 UPLOAD_DIR = Path("data/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -37,7 +45,7 @@ async def upload(file: UploadFile = File(...)):
 
 class AskRequest(BaseModel):
     question: str
-    k: int = 4
+    k: int = 2
 
 
 @app.post("/ask")
@@ -46,5 +54,5 @@ def ask(body: AskRequest):
 
 
 @app.get("/search")
-def search_docs(q: str, k: int = 4):
+def search_docs(q: str, k: int = 2):
     return {"query": q, "results": search(q, k)}

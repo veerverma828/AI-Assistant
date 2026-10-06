@@ -28,7 +28,7 @@ def build_prompt(question: str, chunks: list[dict]) -> str:
     )
 
 
-def answer_question(question: str, k: int = 4) -> dict:
+def answer_question(question: str, k: int = 2) -> dict:
     chunks = search(question, k)
 
     if not chunks or chunks[0]["distance"] > MAX_DISTANCE:

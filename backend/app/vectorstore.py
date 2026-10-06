@@ -33,7 +33,7 @@ def add_chunks(chunks: list[dict]) -> int:
     return len(chunks)
 
 
-def search(query: str, k: int = 4) -> list[dict]:
+def search(query: str, k: int = 2) -> list[dict]:
     """Return the k chunks closest in meaning to the query."""
     vector = embed([f"search_query: {query}"])
     result = collection.query(query_embeddings=vector, n_results=k)
