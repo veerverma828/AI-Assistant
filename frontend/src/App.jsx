@@ -21,14 +21,15 @@ function makeChat() {
   return { id: `c${Date.now()}${Math.floor(Math.random() * 1e6)}`, title: "New chat", messages: [] };
 }
 
+// Only chats with at least one message are ever saved or listed.
 function loadChats() {
   try {
     const data = JSON.parse(localStorage.getItem(CHATS_KEY));
-    if (Array.isArray(data) && data.length) return data;
+    if (Array.isArray(data)) return data.filter((c) => c.messages?.length > 0);
   } catch {
     /* storage blocked or corrupt: start fresh */
   }
-  return [makeChat()];
+  return [];
 }
 
 function loadTheme() {
@@ -44,8 +45,11 @@ const nowMs = () => Date.now();
 const firstArg = (args) => String(Object.values(args)[0] ?? "");
 
 export default function App() {
+  // `chats` = saved conversations (the Recent list). `draftChat` = the blank temporary
+  // chat shown when activeId is null; it joins `chats` only after the first message.
   const [chats, setChats] = useState(loadChats);
-  const [activeId, setActiveId] = useState(() => loadChats()[0].id);
+  const [draftChat, setDraftChat] = useState(makeChat);
+  const [activeId, setActiveId] = useState(null);
   const [theme, setTheme] = useState(loadTheme);
   const [docs, setDocs] = useState([]);
   const [toast, setToast] = useState("");
@@ -59,7 +63,7 @@ export default function App() {
   const abortRef = useRef(null);
   const bottomRef = useRef(null);
 
-  const active = chats.find((c) => c.id === activeId) ?? chats[0];
+  const active = chats.find((c) => c.id === activeId) ?? draftChat;
 
   useEffect(() => {
     try {
@@ -101,26 +105,17 @@ export default function App() {
     setChats((all) => all.map((c) => (c.id === id ? fn(c) : c)));
   }
 
+  // Opens the blank temporary chat. Nothing is added to Recent until a message is sent.
   function newChat() {
     if (loading) return;
-    if (active.messages.length === 0) return;
-    const chat = makeChat();
-    setChats((all) => [chat, ...all]);
-    setActiveId(chat.id);
+    setActiveId(null);
     setSidebarOpen(false);
   }
 
   function deleteChat(id) {
     if (loading) return;
-    const rest = chats.filter((c) => c.id !== id);
-    if (rest.length === 0) {
-      const chat = makeChat();
-      setChats([chat]);
-      setActiveId(chat.id);
-    } else {
-      setChats(rest);
-      if (id === activeId) setActiveId(rest[0].id);
-    }
+    setChats((all) => all.filter((c) => c.id !== id));
+    if (id === activeId) setActiveId(null);
   }
 
   async function handleUpload(file) {
@@ -140,11 +135,15 @@ export default function App() {
     const chatId = active.id;
     const startedAt = nowMs();
 
-    updateChat(chatId, (c) => ({
-      ...c,
-      title: c.messages.length === 0 ? q.slice(0, 40) : c.title,
-      messages: [...c.messages, { role: "user", text: q }],
-    }));
+    const userMessage = { role: "user", text: q };
+    if (chats.some((c) => c.id === chatId)) {
+      updateChat(chatId, (c) => ({ ...c, messages: [...c.messages, userMessage] }));
+    } else {
+      // first message of the blank chat: only now does it enter Recent
+      setChats((all) => [{ ...active, title: q.slice(0, 40), messages: [userMessage] }, ...all]);
+      setActiveId(chatId);
+      setDraftChat(makeChat());
+    }
     setLoading(true);
     setLiveSteps([]);
     setDraft("");

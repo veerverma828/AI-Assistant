@@ -30,6 +30,7 @@ export default function Sidebar({
 
         <div className="side-scroll">
           <h3>Recent</h3>
+          {chats.length === 0 && <p className="empty-docs">No conversations yet.</p>}
           <ul className="chat-list">
             {chats.map((c) => (
               <li key={c.id} className={c.id === activeId ? "active" : ""}>

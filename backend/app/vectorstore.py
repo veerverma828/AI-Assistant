@@ -21,7 +21,9 @@ def embed(texts: list[str]) -> list[list[float]]:
 
 
 def add_chunks(chunks: list[dict]) -> int:
-    """Embed chunks and store them. Same file re-uploaded overwrites, no duplicates."""
+    """Embed chunks and store them. Re-uploading a file replaces all its old chunks."""
+    for source in {c["source"] for c in chunks}:
+        collection.delete(where={"source": source})
     for i in range(0, len(chunks), BATCH_SIZE):
         batch = chunks[i : i + BATCH_SIZE]
         vectors = embed([f"search_document: {c['text']}" for c in batch])

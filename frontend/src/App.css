@@ -613,11 +613,12 @@ details.trace[open] summary::before {
   flex: 1;
   resize: none;
   max-height: 200px;
-  padding: 8px 4px;
+  /* one text line = 22px + 2 x 6px padding = 34px, same as the round buttons, so they line up */
+  padding: 6px 4px;
   border: none;
   outline: none;
   background: none;
-  line-height: 1.5;
+  line-height: 22px;
 }
 
 .composer textarea::placeholder {
