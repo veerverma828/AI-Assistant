@@ -1,14 +1,18 @@
+import json
 from pathlib import Path
 
 import ollama
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from app.ingest import build_chunks
 from pydantic import BaseModel
 
+from app.agent import run_agent, run_agent_stream
 from app.rag import answer_question
-from app.vectorstore import add_chunks, search
+from app.tools import web_search
+from app.vectorstore import add_chunks, list_documents, search
 
 app = FastAPI(title="AI Research Agent")
 
@@ -51,6 +55,34 @@ class AskRequest(BaseModel):
 @app.post("/ask")
 def ask(body: AskRequest):
     return answer_question(body.question, body.k)
+
+
+class AgentRequest(BaseModel):
+    question: str
+
+
+@app.post("/agent")
+def agent(body: AgentRequest):
+    return run_agent(body.question)
+
+
+@app.post("/agent/stream")
+def agent_stream(body: AgentRequest):
+    def event_source():
+        for event in run_agent_stream(body.question):
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(event_source(), media_type="text/event-stream")
+
+
+@app.get("/documents")
+def documents():
+    return {"documents": list_documents()}
+
+
+@app.get("/web-search")
+def web_search_endpoint(q: str, n: int = 3):
+    return {"query": q, "results": web_search(q, n)}
 
 
 @app.get("/search")

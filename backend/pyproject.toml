@@ -3,7 +3,9 @@ name = "backend"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
+    "beautifulsoup4>=4.15.0",
     "chromadb>=1.5.9",
+    "ddgs>=9.16.0",
     "fastapi>=0.142.2",
     "ollama>=0.6.3",
     "pypdf>=6.19.0",

@@ -1,5 +1,9 @@
+from pathlib import Path
+
 import chromadb
 import ollama
+
+UPLOAD_DIR = Path("data/uploads")
 
 EMBED_MODEL = "nomic-embed-text"
 BATCH_SIZE = 32
@@ -31,6 +35,38 @@ def add_chunks(chunks: list[dict]) -> int:
             ],
         )
     return len(chunks)
+
+
+def list_documents() -> list[dict]:
+    """One row per stored file: name, number of chunks, pages covered."""
+    metas = collection.get(include=["metadatas"])["metadatas"]
+    docs: dict[str, dict] = {}
+    for m in metas:
+        d = docs.setdefault(m["source"], {"source": m["source"], "chunks": 0, "pages": set()})
+        d["chunks"] += 1
+        d["pages"].add(m["page"])
+    return [
+        {
+            "source": d["source"],
+            "chunks": d["chunks"],
+            "pages": sorted(d["pages"]),
+            "file_on_disk": (UPLOAD_DIR / d["source"]).is_file(),
+        }
+        for d in sorted(docs.values(), key=lambda d: d["source"])
+    ]
+
+
+def get_chunks(source: str, limit: int = 3) -> list[dict]:
+    """First `limit` stored chunks of one file, in reading order."""
+    result = collection.get(where={"source": source}, include=["documents", "metadatas"])
+    rows = sorted(
+        zip(result["documents"], result["metadatas"]),
+        key=lambda r: (r[1]["page"], r[1]["chunk_index"]),
+    )
+    return [
+        {"source": m["source"], "page": m["page"], "chunk_index": m["chunk_index"], "text": t}
+        for t, m in rows[:limit]
+    ]
 
 
 def search(query: str, k: int = 2) -> list[dict]:

@@ -2,7 +2,7 @@ import ollama
 
 from app.vectorstore import search
 
-LLM_MODEL = "llama3.2:3b"
+LLM_MODEL = "qwen2.5:7b"
 MAX_DISTANCE = 0.65  # best chunk farther than this = question unrelated to the docs
 
 SYSTEM_PROMPT = (
