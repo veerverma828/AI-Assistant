@@ -5,6 +5,12 @@ export function Avatar() {
   return <span className="avatar">Q</span>;
 }
 
+// Older saved chats stored only tools; convert them to the new step shape.
+function stepsOf(message) {
+  if (message.steps) return message.steps;
+  return (message.tools ?? []).map((t) => ({ kind: "tool", ...t }));
+}
+
 export default function Message({ message }) {
   if (message.role === "user") {
     return (
@@ -18,7 +24,7 @@ export default function Message({ message }) {
     <div className="row assistant">
       <Avatar />
       <div className="assistant-body">
-        <ToolTrace tools={message.tools} secs={message.secs} />
+        <ToolTrace steps={stepsOf(message)} secs={message.secs} />
         <Markdown text={message.text} />
         {message.stopped && <div className="stopped">Stopped</div>}
       </div>

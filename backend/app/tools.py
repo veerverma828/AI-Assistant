@@ -61,9 +61,14 @@ def get_chunks(source: str, limit: int = 3) -> list[dict]:
     return _get_chunks(source, int(limit)) or [{"info": f"No chunks found for {source}."}]
 
 
+TOP_K = 2
+
+
 def search_documents(query: str) -> list[dict]:
-    """Search the user's uploaded documents."""
+    """Return the top-2 closest chunks, always. The model decides what is relevant."""
+    if not _list_documents():
+        return [{"info": "The user has not uploaded any documents. Try web_search instead."}]
     return [
         {"source": h["source"], "page": h["page"], "text": h["text"]}
-        for h in search(query, 2)
+        for h in search(query, TOP_K)
     ]

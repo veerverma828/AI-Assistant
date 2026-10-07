@@ -43,15 +43,6 @@ const nowMs = () => Date.now();
 
 const firstArg = (args) => String(Object.values(args)[0] ?? "");
 
-function Elapsed({ since }) {
-  const [now, setNow] = useState(since);
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  return <span className="elapsed">{Math.floor((now - since) / 1000)}s</span>;
-}
-
 export default function App() {
   const [chats, setChats] = useState(loadChats);
   const [activeId, setActiveId] = useState(() => loadChats()[0].id);
@@ -61,9 +52,9 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [loading, setLoading] = useState(false);
-  const [liveTools, setLiveTools] = useState([]);
+  const [liveSteps, setLiveSteps] = useState([]);
   const [draft, setDraft] = useState("");
-  const [lastEventAt, setLastEventAt] = useState(0);
+  const [runStart, setRunStart] = useState(0);
 
   const abortRef = useRef(null);
   const bottomRef = useRef(null);
@@ -99,7 +90,7 @@ export default function App() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [active.messages, draft, liveTools]);
+  }, [active.messages, draft, liveSteps]);
 
   function showToast(text) {
     setToast(text);
@@ -155,16 +146,27 @@ export default function App() {
       messages: [...c.messages, { role: "user", text: q }],
     }));
     setLoading(true);
-    setLiveTools([]);
+    setLiveSteps([]);
     setDraft("");
-    setLastEventAt(startedAt);
+    setRunStart(startedAt);
 
     const controller = new AbortController();
     abortRef.current = controller;
-    const tools = [];
+    // Activity log shown in the dropdown: thinking steps, tool calls, writing.
+    const steps = [];
+    let writing = false;
     let answer = "";
     let draftText = "";
     const secs = () => Math.round((Date.now() - startedAt) / 1000);
+    const sync = () => setLiveSteps(steps.map((s) => ({ ...s })));
+    const closeRunning = (match, status = "done") =>
+      steps.forEach((s) => {
+        if (s.status === "running" && match(s)) s.status = status;
+      });
+    const snapshot = (status) => {
+      closeRunning(() => true, status);
+      return steps.map((s) => ({ ...s }));
+    };
     const finish = (message) =>
       updateChat(chatId, (c) => ({ ...c, messages: [...c.messages, message] }));
 
@@ -172,45 +174,62 @@ export default function App() {
       await askAgentStream(
         q,
         (event) => {
-          setLastEventAt(Date.now());
-          if (event.type === "token") {
+          if (event.type === "thinking") {
+            closeRunning((s) => s.kind === "thinking");
+            steps.push({ kind: "thinking", step: event.step, status: "running" });
+            sync();
+          } else if (event.type === "token") {
+            if (!writing) {
+              writing = true;
+              closeRunning((s) => s.kind === "thinking");
+              steps.push({ kind: "writing", status: "running" });
+              sync();
+            }
             draftText += event.text;
             setDraft(draftText);
           } else if (event.type === "answer") {
             answer = event.text;
           } else if (event.type === "tool_call") {
-            draftText = ""; // model chose a tool: discard text it wrote before
+            // model chose a tool: discard any text it wrote before
+            const plan = draftText.trim();
+            draftText = "";
             setDraft("");
-            tools.push({ tool: event.tool, arg: firstArg(event.args), status: "running" });
-            setLiveTools([...tools]);
+            writing = false;
+            // text before a tool call was the model's plan, not the answer:
+            // swap the "writing" step for a visible "Plan" note
+            const planIdx = steps.findLastIndex((s) => s.kind === "writing");
+            if (planIdx !== -1) steps.splice(planIdx, 1);
+            closeRunning((s) => s.kind === "thinking");
+            if (plan) steps.push({ kind: "note", preview: plan, status: "done" });
+            steps.push({ kind: "tool", tool: event.tool, arg: firstArg(event.args), status: "running" });
+            sync();
           } else if (event.type === "tool_result") {
-            const t = [...tools].reverse().find((x) => x.tool === event.tool && x.status === "running");
+            const t = [...steps].reverse().find((x) => x.kind === "tool" && x.tool === event.tool && x.status === "running");
             if (t) {
               t.status = "done";
               t.preview = event.preview;
+              t.summary = event.summary;
             }
-            setLiveTools([...tools]);
+            sync();
           }
         },
         controller.signal,
       );
-      finish({ role: "assistant", text: answer, tools, secs: secs() });
+      finish({ role: "assistant", text: answer, steps: snapshot("done"), secs: secs() });
     } catch (err) {
       if (err.name === "AbortError") {
-        finish({ role: "assistant", text: draftText || "Stopped.", tools, secs: secs(), stopped: true });
+        finish({ role: "assistant", text: draftText || "Stopped.", steps: snapshot("stopped"), secs: secs(), stopped: true });
       } else {
-        finish({ role: "assistant", text: `Something went wrong: ${err.message}`, tools, secs: secs() });
+        finish({ role: "assistant", text: `Something went wrong: ${err.message}`, steps: snapshot("stopped"), secs: secs() });
       }
     } finally {
       setLoading(false);
-      setLiveTools([]);
+      setLiveSteps([]);
       setDraft("");
       abortRef.current = null;
     }
   }
 
-  const running = liveTools.find((t) => t.status === "running");
-  const statusLabel = draft ? "Writing answer" : running ? "Working" : "Thinking";
   const empty = active.messages.length === 0 && !loading;
 
   return (
@@ -270,12 +289,8 @@ export default function App() {
                   <div className="row assistant">
                     <Avatar />
                     <div className="assistant-body">
-                      <ToolTrace tools={liveTools} live />
+                      <ToolTrace steps={liveSteps} live runStart={runStart} />
                       {draft && <Markdown text={draft} />}
-                      <div className="working">
-                        <span className="dot" /> {statusLabel}{" "}
-                        <Elapsed key={lastEventAt} since={lastEventAt} />
-                      </div>
                     </div>
                   </div>
                 )}

@@ -406,9 +406,53 @@ details.trace[open] summary::before {
   font-weight: 500;
 }
 
-.trace-arg {
+.tool-pill {
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.82rem;
+}
+
+.trace-query {
+  margin-top: 3px;
   color: var(--muted);
-  font-weight: 400;
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.trace-query::before {
+  content: "“";
+}
+
+.trace-query::after {
+  content: "”";
+}
+
+.trace-result {
+  margin-top: 4px;
+  font-size: 0.82rem;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.chip {
+  max-width: 100%;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .trace-preview {
@@ -422,6 +466,33 @@ details.trace[open] summary::before {
   overflow-wrap: anywhere;
 }
 
+/* the plan note shows its full text, not a 2-line preview */
+.trace-item.note .trace-preview {
+  display: block;
+  -webkit-line-clamp: unset;
+  font-style: italic;
+  font-size: 0.82rem;
+}
+
+.trace-live {
+  margin-bottom: 8px;
+}
+
+.trace-live .trace {
+  margin-bottom: 8px;
+}
+
+.live-arg {
+  color: var(--muted);
+}
+
+.trace-preview.note {
+  display: block;
+  -webkit-line-clamp: unset;
+  font-style: italic;
+  font-size: 0.82rem;
+}
+
 .trace-state {
   margin-top: 4px;
 }
@@ -429,6 +500,16 @@ details.trace[open] summary::before {
 .check {
   color: var(--ok);
   font-size: 0.8rem;
+}
+
+.stopped-mark {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.trace-item.thinking-done,
+.trace-item.done .trace-title {
+  opacity: 0.95;
 }
 
 /* ---------- markdown ---------- */

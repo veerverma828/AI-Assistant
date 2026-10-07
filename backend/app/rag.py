@@ -3,7 +3,6 @@ import ollama
 from app.vectorstore import search
 
 LLM_MODEL = "qwen2.5:7b"
-MAX_DISTANCE = 0.65  # best chunk farther than this = question unrelated to the docs
 
 SYSTEM_PROMPT = (
     "You answer questions using ONLY the numbered context given by the user. "
@@ -31,9 +30,9 @@ def build_prompt(question: str, chunks: list[dict]) -> str:
 def answer_question(question: str, k: int = 2) -> dict:
     chunks = search(question, k)
 
-    if not chunks or chunks[0]["distance"] > MAX_DISTANCE:
+    if not chunks:  # empty vector store: nothing to send
         return {
-            "answer": "I could not find this in the uploaded documents.",
+            "answer": "No documents are stored yet. Upload a document first.",
             "sources": [],
         }
 

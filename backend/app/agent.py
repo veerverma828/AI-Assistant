@@ -1,19 +1,16 @@
 import json
-from pathlib import Path
 
 import ollama
 
 from app.tools import fetch_page, get_chunks, list_documents, search_documents, web_search
 
 AGENT_MODEL = "qwen2.5:7b"
-UPLOAD_DIR = Path("data/uploads")
 MAX_STEPS = 5
 MAX_TOOL_RESULT_CHARS = 4000
 
 SYSTEM_PROMPT = (
-    "You are a research assistant with tools. "
-    "Use search_documents first for questions about the user's uploaded files. "
-    "Use web_search for current events, facts not in the documents, or when documents have no answer. "
+    "You are a research assistant with tools. Read each tool's description and choose the right one yourself. "
+    "If a tool reports no relevant result, try another tool that could help. "
     "Search snippets are short and rarely contain the answer. "
     "If the question needs a specific value (temperature, price, score, version, date), "
     "you MUST call fetch_page on the most relevant url before answering. "
@@ -31,7 +28,14 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "search_documents",
-            "description": "Search the user's uploaded documents. Use for questions about their files.",
+            "description": (
+                "Search the user's own uploaded files (resume, PDFs, notes, reports). "
+                "Use for any question about the user, their background, skills, projects, or content "
+                "that could be in their files, even if the question does not mention documents. "
+                "Not for news, weather, or public facts. "
+                "Returns the 2 closest passages: read them, ignore any that do not help, "
+                "and use web_search if none answer the question."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {"query": {"type": "string", "description": "What to look for"}},
@@ -66,7 +70,11 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "web_search",
-            "description": "Search the web for current information. Returns titles, urls, snippets, and the text content of the top pages.",
+            "description": (
+                "Search the public web. Use for current events, weather, news, prices, versions, "
+                "and general knowledge, or when the user's documents had no relevant answer. "
+                "Returns titles, urls, snippets, and the text of the top pages."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {"query": {"type": "string", "description": "Search query"}},
@@ -98,19 +106,33 @@ REGISTRY = {
 }
 
 
-def build_system_prompt() -> str:
-    """Base rules plus the list of uploaded files, so the model knows documents exist."""
-    files = sorted(p.name for p in UPLOAD_DIR.glob("*") if p.is_file())
-    if not files:
-        return SYSTEM_PROMPT + " The user has not uploaded any documents."
-    return (
-        SYSTEM_PROMPT
-        + " The user has uploaded these documents: "
-        + ", ".join(files)
-        + ". Questions about people, projects, skills, or anything that could be in these files: "
-        "call search_documents FIRST, even if the user does not mention the documents. "
-        "Use web_search only if the documents have no answer or the question is about the outside world."
-    )
+def summarize(name: str, result) -> dict:
+    """Short human summary of a tool result for the UI. The model still gets the full result."""
+    if isinstance(result, str):
+        if name == "fetch_page" and not result.startswith("Could not fetch"):
+            return {"text": f"Read {len(result):,} characters", "items": []}
+        return {"text": result[:140], "items": []}
+    if result and isinstance(result[0], dict) and "info" in result[0]:
+        return {"text": result[0]["info"], "items": []}
+    if name in ("search_documents", "get_chunks"):
+        verb = "Found" if name == "search_documents" else "Read"
+        noun = "passages" if name == "search_documents" else "chunks"
+        return {
+            "text": f"{verb} {len(result)} {noun}",
+            "items": [f"{r['source']} · p.{r['page']}" for r in result],
+        }
+    if name == "list_documents":
+        return {
+            "text": f"{len(result)} documents stored",
+            "items": [f"{r['source']} · {r['chunks']} chunks" for r in result],
+        }
+    if name == "web_search":
+        read = sum(1 for r in result if "content" in r)
+        return {
+            "text": f"{len(result)} results, read {read} pages",
+            "items": [r["title"][:70] for r in result],
+        }
+    return {"text": f"{len(result)} results", "items": []}
 
 
 def run_tool(name: str, args: dict):
@@ -126,7 +148,7 @@ def run_tool(name: str, args: dict):
 def run_agent_stream(question: str):
     """Generator: yields one event dict per step so the UI can show live progress."""
     messages = [
-        {"role": "system", "content": build_system_prompt()},
+        {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": question},
     ]
 
@@ -160,7 +182,12 @@ def run_agent_stream(question: str):
             yield {"type": "tool_call", "tool": name, "args": args}
             result = run_tool(name, args)
             result_text = json.dumps(result, ensure_ascii=False)[:MAX_TOOL_RESULT_CHARS]
-            yield {"type": "tool_result", "tool": name, "preview": result_text[:300]}
+            yield {
+                "type": "tool_result",
+                "tool": name,
+                "preview": result_text[:300],
+                "summary": summarize(name, result),
+            }
             messages.append({"role": "tool", "content": result_text, "tool_name": name})
 
     yield {"type": "answer", "text": "Stopped: reached the step limit before finishing."}
