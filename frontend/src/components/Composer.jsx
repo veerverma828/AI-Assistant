@@ -32,7 +32,7 @@ export default function Composer({ onSend, onStop, loading, onPickFile }) {
         <button
           type="button"
           className="icon-btn"
-          title="Upload a document"
+          title="Upload a document (saved for all chats)"
           onClick={() => fileRef.current.click()}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"

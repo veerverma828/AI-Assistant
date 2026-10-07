@@ -1,3 +1,7 @@
+import re
+from datetime import datetime
+from pathlib import Path
+
 import httpx
 from bs4 import BeautifulSoup
 from ddgs import DDGS
@@ -59,6 +63,21 @@ def list_documents() -> list[dict]:
 def get_chunks(source: str, limit: int = 3) -> list[dict]:
     """Show stored chunks of one document."""
     return _get_chunks(source, int(limit)) or [{"info": f"No chunks found for {source}."}]
+
+
+REPORT_DIR = Path("data/reports")
+
+
+def save_report(title: str, content: str) -> dict:
+    """Save a finished report as a Markdown file. GATED: only runs after the user approves."""
+    REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:50] or "report"
+    name = f"{slug}-{datetime.now():%Y%m%d-%H%M%S}.md"
+    body = content.strip()
+    if not body.startswith("# "):
+        body = f"# {title}\n\n{body}"
+    (REPORT_DIR / name).write_text(body + "\n", encoding="utf-8")
+    return {"saved": name, "chars": len(body)}
 
 
 TOP_K = 2

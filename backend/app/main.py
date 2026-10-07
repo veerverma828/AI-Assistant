@@ -1,17 +1,18 @@
 import json
 from pathlib import Path
+from typing import Literal
 
 import ollama
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from app.ingest import build_chunks
 from pydantic import BaseModel
 
-from app.agent import run_agent, run_agent_stream
+from app.agent import resume_agent_stream, run_agent, run_agent_stream
 from app.rag import answer_question
-from app.tools import web_search
+from app.tools import save_report, web_search
 from app.vectorstore import add_chunks, delete_document, list_documents, search
 
 app = FastAPI(title="AI Research Agent")
@@ -57,22 +58,87 @@ def ask(body: AskRequest):
     return answer_question(body.question, body.k)
 
 
+class HistoryMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
 class AgentRequest(BaseModel):
     question: str
+    history: list[HistoryMessage] = []  # earlier messages of this chat, oldest first
+
+
+def history_of(body: AgentRequest) -> list[dict]:
+    return [m.model_dump() for m in body.history]
 
 
 @app.post("/agent")
 def agent(body: AgentRequest):
-    return run_agent(body.question)
+    return run_agent(body.question, history_of(body))
 
 
 @app.post("/agent/stream")
 def agent_stream(body: AgentRequest):
     def event_source():
-        for event in run_agent_stream(body.question):
+        for event in run_agent_stream(body.question, history_of(body)):
             yield f"data: {json.dumps(event)}\n\n"
 
     return StreamingResponse(event_source(), media_type="text/event-stream")
+
+
+class ApprovalRequest(BaseModel):
+    id: str
+    approved: bool
+    title: str | None = None  # optional edits made in the approval card
+    content: str | None = None
+
+
+@app.post("/agent/approve")
+def agent_approve(body: ApprovalRequest):
+    edits = {"title": body.title, "content": body.content}
+
+    def event_source():
+        for event in resume_agent_stream(body.id, body.approved, edits):
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(event_source(), media_type="text/event-stream")
+
+
+class ReportRequest(BaseModel):
+    title: str
+    content: str
+
+
+@app.post("/reports")
+def create_report(body: ReportRequest):
+    """Save a report directly (the 'Save as report' button). The user already approved it in the UI."""
+    if not body.title.strip() or not body.content.strip():
+        raise HTTPException(status_code=400, detail="Title and content are required")
+    return save_report(body.title.strip(), body.content)
+
+
+@app.get("/reports")
+def reports():
+    folder = Path("data/reports")
+    names = sorted((p.name for p in folder.glob("*.md")), reverse=True) if folder.exists() else []
+    return {"reports": names}
+
+
+@app.delete("/reports/{name}")
+def delete_report(name: str):
+    path = Path("data/reports") / Path(name).name  # .name blocks '../' style names
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Report not found")
+    path.unlink()
+    return {"deleted": path.name}
+
+
+@app.get("/reports/{name}")
+def report_file(name: str):
+    path = Path("data/reports") / Path(name).name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Report not found")
+    return FileResponse(path, media_type="text/markdown; charset=utf-8")
 
 
 @app.get("/documents")

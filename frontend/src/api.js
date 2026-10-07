@@ -20,17 +20,22 @@ export async function deleteDocument(name) {
   return res.json();
 }
 
-// Calls the streaming agent endpoint and runs onEvent(event) for every step.
-// `signal` lets the caller cancel the request (Stop button).
-export async function askAgentStream(question, onEvent, signal) {
-  const res = await fetch(`${API}/agent/stream`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question }),
-    signal,
-  });
-  if (!res.ok) throw new Error(`Agent failed (${res.status})`);
+export async function listReports() {
+  const res = await fetch(`${API}/reports`);
+  if (!res.ok) throw new Error(`Could not load reports (${res.status})`);
+  return (await res.json()).reports;
+}
 
+export async function deleteReport(name) {
+  const res = await fetch(`${API}/reports/${encodeURIComponent(name)}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+  return res.json();
+}
+
+export const reportUrl = (name) => `${API}/reports/${encodeURIComponent(name)}`;
+
+// Reads a server-sent-events response and runs onEvent(event) for every event.
+async function readStream(res, onEvent) {
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -45,6 +50,38 @@ export async function askAgentStream(question, onEvent, signal) {
     }
   }
 }
+
+async function postStream(path, body, onEvent, signal) {
+  const res = await fetch(`${API}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!res.ok) throw new Error(`Request failed (${res.status})`);
+  await readStream(res, onEvent);
+}
+
+// Streams the agent's steps. `signal` lets the caller cancel (Stop button).
+// `history` = earlier messages of this chat [{role, content}], so follow-ups make sense.
+export const askAgentStream = (question, onEvent, signal, history = []) =>
+  postStream("/agent/stream", { question, history }, onEvent, signal);
+
+// Saves a report straight away (the "Save as report" button), no agent involved.
+export async function saveReportDirect(title, content) {
+  const res = await fetch(`${API}/reports`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, content }),
+  });
+  if (!res.ok) throw new Error(`Save failed (${res.status})`);
+  return res.json();
+}
+
+// Sends the user's decision on a paused action and streams the rest of the run.
+// `edits` may carry a changed title/content from the approval card.
+export const approveAction = (id, approved, edits, onEvent, signal) =>
+  postStream("/agent/approve", { id, approved, ...edits }, onEvent, signal);
 
 // Plain RAG endpoint (no agent). Kept for evaluation later.
 export async function askQuestion(question) {
