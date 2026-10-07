@@ -206,6 +206,32 @@
   gap: 5px;
 }
 
+.doc-list li {
+  align-items: center;
+  border-radius: 8px;
+}
+
+.doc-list li:hover {
+  background: var(--surface);
+}
+
+.doc-delete {
+  display: none;
+  padding: 2px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  line-height: 0;
+}
+
+.doc-list li:hover .doc-delete {
+  display: block;
+}
+
+.doc-delete:hover {
+  color: var(--danger);
+}
+
 .doc-list li.missing .doc-name {
   color: var(--muted);
 }

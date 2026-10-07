@@ -8,6 +8,7 @@ export default function Sidebar({
   onDelete,
   docs,
   onPickFile,
+  onDeleteDoc,
   theme,
   onToggleTheme,
   open,
@@ -74,6 +75,17 @@ export default function Sidebar({
                     )}
                     {d.chunks} chunks
                   </span>
+                  <button
+                    className="doc-delete"
+                    title={`Delete ${d.source}`}
+                    aria-label={`Delete ${d.source}`}
+                    onClick={() => onDeleteDoc(d.source)}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6" />
+                    </svg>
+                  </button>
                 </li>
               ))}
             </ul>

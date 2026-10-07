@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 import ollama
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from app.agent import run_agent, run_agent_stream
 from app.rag import answer_question
 from app.tools import web_search
-from app.vectorstore import add_chunks, list_documents, search
+from app.vectorstore import add_chunks, delete_document, list_documents, search
 
 app = FastAPI(title="AI Research Agent")
 
@@ -78,6 +78,21 @@ def agent_stream(body: AgentRequest):
 @app.get("/documents")
 def documents():
     return {"documents": list_documents()}
+
+
+@app.delete("/documents/{name}")
+def delete_document_endpoint(name: str):
+    """Delete the uploaded file and all its chunks together."""
+    if Path(name).name != name:  # blocks '../' style names
+        raise HTTPException(status_code=400, detail="Invalid file name")
+    chunks_removed = delete_document(name)
+    file = UPLOAD_DIR / name
+    file_removed = file.is_file()
+    if file_removed:
+        file.unlink()
+    if not chunks_removed and not file_removed:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {"deleted": name, "chunks_removed": chunks_removed, "file_removed": file_removed}
 
 
 @app.get("/web-search")

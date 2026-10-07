@@ -14,6 +14,12 @@ export async function listDocuments() {
   return (await res.json()).documents;
 }
 
+export async function deleteDocument(name) {
+  const res = await fetch(`${API}/documents/${encodeURIComponent(name)}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+  return res.json();
+}
+
 // Calls the streaming agent endpoint and runs onEvent(event) for every step.
 // `signal` lets the caller cancel the request (Stop button).
 export async function askAgentStream(question, onEvent, signal) {

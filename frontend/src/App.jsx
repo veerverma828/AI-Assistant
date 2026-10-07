@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { askAgentStream, listDocuments, uploadFile } from "./api";
+import { askAgentStream, deleteDocument, listDocuments, uploadFile } from "./api";
 import Composer from "./components/Composer";
 import Markdown from "./components/Markdown";
 import Message, { Avatar } from "./components/Message";
@@ -129,6 +129,17 @@ export default function App() {
     }
   }
 
+  async function handleDeleteDoc(name) {
+    if (!window.confirm(`Delete "${name}" and all its chunks? This cannot be undone.`)) return;
+    try {
+      const r = await deleteDocument(name);
+      showToast(`Deleted ${r.deleted} (${r.chunks_removed} chunks)`);
+      setDocs(await listDocuments());
+    } catch (err) {
+      showToast(err.message);
+    }
+  }
+
   async function ask(text) {
     const q = text.trim();
     if (!q || loading) return;
@@ -246,6 +257,7 @@ export default function App() {
         onDelete={deleteChat}
         docs={docs}
         onPickFile={handleUpload}
+        onDeleteDoc={handleDeleteDoc}
         theme={theme}
         onToggleTheme={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
         open={sidebarOpen}

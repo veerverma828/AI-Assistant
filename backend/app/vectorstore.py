@@ -58,6 +58,14 @@ def list_documents() -> list[dict]:
     ]
 
 
+def delete_document(source: str) -> int:
+    """Remove every stored chunk of one file. Returns how many chunks were removed."""
+    ids = collection.get(where={"source": source}, include=[])["ids"]
+    if ids:
+        collection.delete(ids=ids)
+    return len(ids)
+
+
 def get_chunks(source: str, limit: int = 3) -> list[dict]:
     """First `limit` stored chunks of one file, in reading order."""
     result = collection.get(where={"source": source}, include=["documents", "metadatas"])
