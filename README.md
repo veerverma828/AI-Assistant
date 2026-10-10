@@ -11,7 +11,7 @@
 ![ChromaDB](https://img.shields.io/badge/ChromaDB-vector%20store-FF6B35)
 ![License](https://img.shields.io/badge/status-active%20project-8B7CF6)
 
-<img src="docs/images/home.jpg" alt="Querywise home screen" width="860">
+<img src="docs/images/home.png" alt="Querywise home screen" width="860">
 
 </div>
 
@@ -41,12 +41,12 @@ I built it to learn how real LLM applications are put together, end to end: not 
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/web-research.jpg" alt="Agent searching the web with live tool steps"></td>
-    <td width="50%"><img src="docs/images/approval.jpg" alt="Approval card for saving a report"></td>
+    <td width="50%" valign="top"><img src="docs/images/web-research.png" alt="The agent's web search step: query, results and sources"></td>
+    <td width="50%" valign="top"><img src="docs/images/approval.png" alt="Approval card for saving a report"></td>
   </tr>
   <tr>
-    <td align="center"><b>Live tool use</b><br>The agent searched the web, read two pages, and is writing the answer. Each step is visible as it happens.</td>
-    <td align="center"><b>Human approval</b><br>A research report drafted from web pages. Nothing is saved until you approve, edit, or reject.</td>
+    <td align="center" valign="top"><b>Transparent tool use</b><br>The agent's web-search step: the query it chose, how many pages it read, and the sources it used.</td>
+    <td align="center" valign="top"><b>Human approval</b><br>A research report drafted from web pages. Nothing is saved until you approve, edit, or reject.</td>
   </tr>
 </table>
 
